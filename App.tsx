@@ -104,7 +104,7 @@ const App: React.FC = () => {
       
       {/* Top Bar (Hidden in Focus Mode) */}
       {state.status !== AppStatus.FOCUS && (
-        <header className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-10">
+        <header className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-20">
           <h1 className="text-xl font-bold tracking-tight opacity-50">FocusFlow</h1>
           <div className="flex gap-2">
             <button 
@@ -128,7 +128,7 @@ const App: React.FC = () => {
       )}
 
       {/* Main Interaction Area */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 text-center relative z-10">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 text-center relative z-0">
         
         {/* INACTIVE STATE */}
         {state.status === AppStatus.INACTIVE && (
