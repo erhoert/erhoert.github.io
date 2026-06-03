@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Review Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf8;
+    --paper: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --border: #e2e2dc;
+    --accent: #2563eb;
+    --critical-bg: #fee2e2;
+    --critical: #dc2626;
+    --warn-bg: #fef3c7;
+    --warn: #d97706;
+    --suggest-bg: #faf3dc;
+    --suggest: #a16207;
+    --done: #16a34a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  header {
+    background: var(--paper);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  header .run { color: var(--muted); font-size: 13px; }
+  .file-tabs { display: flex; gap: 4px; margin-left: auto; }
+  .file-tabs button {
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .file-tabs button.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .file-tabs button .count {
+    margin-left: 6px;
+    background: rgba(0,0,0,0.1);
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 11px;
+  }
+  .file-tabs button.active .count { background: rgba(255,255,255,0.25); }
+  .header-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .header-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .header-btn.dirty { background: var(--warn); }
+  .undo-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .undo-btn:not(:disabled):hover {
+    background: #f5f5f0;
+    color: var(--text);
+  }
+  .undo-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  #welcome {
+    max-width: 640px;
+    margin: 60px auto;
+    padding: 40px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-align: center;
+  }
+  #welcome h2 { margin-top: 0; }
+  #welcome p { color: var(--muted); }
+  #welcome ul {
+    text-align: left;
+    display: inline-block;
+    color: var(--muted);
+  }
+  #welcome code {
+    background: #f5f5f0;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 90%;
+  }
+  #welcome .load-big {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    margin-top: 16px;
+  }
+  #welcome .load-big:hover { filter: brightness(1.1); }
+
+  #doc {
+    background: var(--paper);
+    padding: 32px 140px 32px 120px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  #file-level {
+    position: absolute;
+    top: 32px;
+    left: 14px;
+    width: 88px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    padding-right: 14px;
+    border-right: 1px dashed var(--border);
+    min-height: 60px;
+  }
+  #file-level .label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    margin-bottom: 2px;
+    width: 100%;
+  }
+  #file-level .gutter-icon { position: static; }
+
+  #doc .block {
+    position: relative;
+    transition: background-color 0.2s;
+    padding: 4px 10px;
+    margin: 2px -10px;
+    border-radius: 4px;
+  }
+  #doc .block.sev-critical { background: var(--critical-bg); box-shadow: inset 3px 0 0 var(--critical); }
+  #doc .block.sev-warn { background: var(--warn-bg); box-shadow: inset 3px 0 0 var(--warn); }
+  #doc .block.sev-suggest { background: var(--suggest-bg); box-shadow: inset 3px 0 0 var(--suggest); }
+  #doc .block.highlight {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  #doc h1 { font-size: 22px; margin: 24px 0 12px; }
+  #doc h2 { font-size: 18px; margin: 20px 0 10px; }
+  #doc h3 { font-size: 16px; margin: 16px 0 8px; }
+  #doc p { margin: 8px 0; }
+  #doc table {
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+    width: 100%;
+  }
+  #doc th, #doc td {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  #doc th { background: #f5f5f0; font-weight: 600; }
+  #doc code {
+    background: rgba(0,0,0,0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 90%;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  #doc blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 4px 12px;
+    margin: 8px 0;
+    color: var(--muted);
+    background: rgba(0,0,0,0.02);
+  }
+  #doc ul, #doc ol { padding-left: 22px; margin: 6px 0; }
+
+  .block-gutter {
+    position: absolute;
+    top: 4px;
+    right: -130px;
+    width: 120px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-top: 2px;
+  }
+  .gutter-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s, box-shadow 0.1s;
+    user-select: none;
+    padding: 0;
+    line-height: 1;
+  }
+  .gutter-icon:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 5;
+  }
+  .gutter-icon.sev-critical { background: var(--critical-bg); border-color: var(--critical); }
+  .gutter-icon.sev-warn { background: var(--warn-bg); border-color: var(--warn); }
+  .gutter-icon.sev-suggest { background: var(--suggest-bg); border-color: var(--suggest); }
+  .gutter-icon.status-x {
+    background: #dcfce7;
+    border-color: var(--done);
+    opacity: 0.55;
+  }
+  .gutter-icon.status-rejected {
+    background: #e5e5e0;
+    border-color: var(--muted);
+    opacity: 0.5;
+  }
+  .gutter-icon.has-comment::after {
+    content: '';
+    position: absolute;
+    margin-top: -18px;
+    margin-left: 16px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 1.5px solid white;
+  }
+
+  #popup {
+    position: absolute;
+    width: 400px;
+    max-width: calc(100vw - 40px);
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+    padding: 16px 18px;
+    display: none;
+    z-index: 100;
+  }
+  #popup.visible { display: block; }
+  #popup .close-x {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+    user-select: none;
+  }
+  #popup .close-x:hover { color: var(--text); }
+  #popup .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    margin-right: 24px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  #popup .head .id { font-family: ui-monospace, monospace; font-weight: 600; color: var(--text); }
+  #popup .head .anchor {
+    margin-left: auto;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+  #popup .body {
+    font-size: 13px;
+    line-height: 1.55;
+    margin-bottom: 10px;
+  }
+  #popup .body code {
+    background: #f5f5f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 92%;
+    font-family: ui-monospace, monospace;
+  }
+  #popup .extra {
+    padding: 8px 10px;
+    background: #f8f8f3;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  #popup .comments { margin-bottom: 10px; }
+  #popup .user-comment {
+    background: #eff6ff;
+    border-left: 2px solid var(--accent);
+    padding: 5px 8px;
+    margin: 4px 0;
+    font-size: 12px;
+    border-radius: 3px;
+    position: relative;
+  }
+  #popup .user-comment .author { font-weight: 600; }
+  #popup .user-comment .remove {
+    float: right;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    margin-left: 6px;
+  }
+  #popup .user-comment .remove:hover { color: var(--critical); }
+  #popup textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font: inherit;
+    font-size: 12px;
+    resize: vertical;
+    min-height: 50px;
+    margin-bottom: 6px;
+  }
+  #popup .add-comment-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 5px 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  #popup .actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  #popup .actions button {
+    background: white;
+    border: 1px solid var(--border);
+    padding: 5px 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  #popup .actions button:hover { background: #f5f5f0; }
+  #popup .actions button.active {
+    border-color: var(--done);
+    background: var(--done);
+    color: white;
+  }
+  #popup .actions button.danger:hover {
+    background: var(--critical);
+    color: white;
+    border-color: var(--critical);
+  }
+  #popup .actions .spacer { flex: 1; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1a1a1a;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--critical); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Review Viewer</h1>
+  <span class="run" id="run-name">— kein Ordner geladen</span>
+  <div class="file-tabs" id="file-tabs"></div>
+  <button class="undo-btn" id="undo-btn" disabled title="Rückgängig (⌘Z)">↶ Rückgängig</button>
+  <button class="header-btn" id="load-btn">📁 Run-Ordner laden</button>
+  <button class="header-btn" id="copy-btn" disabled style="display:none" title="Kopieren (⌘S)">📋 Findings kopieren</button>
+</header>
+<input type="file" id="folder-input" webkitdirectory multiple style="display:none">
+<main>
+  <div id="welcome">
+    <h2>📁 Run-Ordner laden</h2>
+    <p>Wähle den Ordner mit den Run-Dateien aus — typischerweise <code>_temp/{fach}-{ct}/</code>.</p>
+    <p>Der Viewer liest automatisch:</p>
+    <ul>
+      <li><code>review-findings.md</code> — die Findings</li>
+      <li><code>te.md</code>, <code>lesson.md</code>, <code>exercise-gebunden.md</code>, <code>exercise-ungebunden.md</code> — als Referenz, soweit vorhanden</li>
+    </ul>
+    <p>Alle Edits passieren lokal im Browser. Mit „<strong>📋 Findings kopieren</strong>" landet die aktualisierte <code>review-findings.md</code> im Clipboard — paste sie zurück in den Claude-Chat.</p>
+    <button class="load-big" id="load-big">📁 Ordner auswählen</button>
+  </div>
+  <div id="doc" style="display:none"></div>
+</main>
+<div id="popup"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const KNOWN_FILES = ['te.md', 'lesson.md', 'exercise-gebunden.md', 'exercise-ungebunden.md']
+const FINDINGS_FILE = 'review-findings.md'
+
+const ID_PATTERN = /\*\*([A-Z]+-[A-Z]-(?:❌|⚠️|💡)-\d+)\*\*/
+const ANCHOR_PATTERN = /`([^`:]+\.md)(?::(\d+)(?:-(\d+))?)?`/
+const STATUS_PATTERN = /^- \[([ x~])\]/
+const COMMENT_PATTERN = /^\s+-\s+💬\s+(.+?):\s*(.*)$/
+
+function parseFindings(content) {
+  const lines = content.split('\n')
+  const findings = []
+  const blocks = []
+
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    const statusMatch = line.match(STATUS_PATTERN)
+    const idMatch = line.match(ID_PATTERN)
+
+    if (statusMatch && idMatch) {
+      const start = i
+      const status = statusMatch[1]
+      const id = idMatch[1]
+      const anchorMatch = line.match(ANCHOR_PATTERN)
+      const anchor = anchorMatch
+        ? {
+            file: anchorMatch[1],
+            lineStart: anchorMatch[2] ? parseInt(anchorMatch[2], 10) : null,
+            lineEnd: anchorMatch[3] ? parseInt(anchorMatch[3], 10) : null,
+          }
+        : null
+
+      const refIdx = anchorMatch
+        ? line.indexOf(anchorMatch[0]) + anchorMatch[0].length
+        : line.indexOf('**' + id + '**') + ('**' + id + '**').length
+      const body = line.slice(refIdx).replace(/^\s*[·:]\s*/, '').trim()
+
+      let end = i + 1
+      const extraLines = []
+      const userComments = []
+
+      while (end < lines.length) {
+        const next = lines[end]
+        if (next.match(STATUS_PATTERN) && next.match(ID_PATTERN)) break
+        if (next.startsWith('## ') || next.startsWith('# ')) break
+        if (next.startsWith('**❌') || next.startsWith('**⚠️') || next.startsWith('**💡')) break
+        if (next === '---') break
+        if (next.startsWith('- ') && !next.match(/^\s+-/)) break
+
+        const commentMatch = next.match(COMMENT_PATTERN)
+        if (commentMatch) {
+          userComments.push({ author: commentMatch[1], text: commentMatch[2] })
+        } else if (next.trim()) {
+          extraLines.push(next)
+        }
+        end++
+      }
+
+      findings.push({ id, status, anchor, body, userComments, extraLines })
+      blocks.push({ id, start, end })
+      i = end
+    } else {
+      i++
+    }
+  }
+
+  return { findings, blocks, raw: content }
+}
+
+function serializeUpdate(parsed, updatesMap) {
+  const lines = parsed.raw.split('\n')
+  const out = []
+
+  let i = 0
+  while (i < lines.length) {
+    const block = parsed.blocks.find((b) => b.start === i)
+    if (!block) {
+      out.push(lines[i])
+      i++
+      continue
+    }
+
+    const update = updatesMap.get(block.id)
+    if (update && update.deleted) {
+      i = block.end
+      continue
+    }
+
+    const finding = parsed.findings.find((f) => f.id === block.id)
+    const newStatus = update?.status ?? finding.status
+
+    const firstLine = lines[i].replace(STATUS_PATTERN, `- [${newStatus}]`)
+    out.push(firstLine)
+
+    for (let j = i + 1; j < block.end; j++) {
+      const isComment = lines[j].match(COMMENT_PATTERN)
+      if (!isComment) out.push(lines[j])
+    }
+
+    const comments = update?.userComments ?? finding.userComments
+    for (const c of comments) {
+      if (c.text.trim()) out.push(`  - 💬 ${c.author}: ${c.text}`)
+    }
+
+    i = block.end
+  }
+
+  return out.join('\n')
+}
+
+const state = {
+  parsed: null,
+  findings: [],
+  files: {},
+  activeFile: null,
+  updates: new Map(),
+  activeFindingId: null,
+  blockLineMap: new Map(),
+  runDir: null,
+}
+
+const md = window.markdownit({ html: true, breaks: false, linkify: false })
+const defaultRender = (tokens, idx, options, env, self) => self.renderToken(tokens, idx, options)
+const blockRules = ['paragraph_open', 'heading_open', 'table_open', 'blockquote_open', 'bullet_list_open', 'ordered_list_open', 'hr']
+for (const rule of blockRules) {
+  const orig = md.renderer.rules[rule] || defaultRender
+  md.renderer.rules[rule] = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]
+    if (token.map && token.level === 0) {
+      token.attrJoin('class', 'block')
+      token.attrSet('data-line-start', token.map[0] + 1)
+      token.attrSet('data-line-end', token.map[1])
+    }
+    return orig(tokens, idx, options, env, self)
+  }
+}
+
+function preprocessMd(text) {
+  return text
+    .replace(/<image>([\s\S]*?)<\/image>/g, (_, c) => '> 🖼️ **Bild:** ' + c.trim())
+    .replace(/<animation>([\s\S]*?)<\/animation>/g, (_, c) => '> 🎞️ **Animation:** ' + c.trim())
+    .replace(/<illustration>([\s\S]*?)<\/illustration>/g, (_, c) => '> 🎨 **Illustration:** ' + c.trim())
+}
+
+function severityFromId(id) {
+  if (id.includes('❌')) return 'critical'
+  if (id.includes('⚠️')) return 'warn'
+  if (id.includes('💡')) return 'suggest'
+  return ''
+}
+function categoryFromId(id) {
+  if (id.includes('-G-')) return 'Guideline'
+  if (id.includes('-C-')) return 'Correctness'
+  if (id.includes('-U-')) return 'UX'
+  if (id.includes('-D-')) return 'Didaktik'
+  return ''
+}
+const SEV_EMOJI = { critical: '❌', warn: '⚠️', suggest: '💡' }
+const SEV_RANK = { critical: 3, warn: 2, suggest: 1 }
+
+function getStatus(f) { return state.updates.get(f.id)?.status ?? f.status }
+function isDeleted(f) { return state.updates.get(f.id)?.deleted === true }
+function getUserComments(f) { return state.updates.get(f.id)?.userComments ?? f.userComments }
+function getUpdate(f) {
+  if (!state.updates.has(f.id)) {
+    state.updates.set(f.id, {
+      id: f.id,
+      status: f.status,
+      userComments: f.userComments.slice(),
+      deleted: false,
+    })
+  }
+  return state.updates.get(f.id)
+}
+
+function markDirty() {
+  const btn = document.getElementById('copy-btn')
+  btn.disabled = false
+  btn.classList.add('dirty')
+  btn.textContent = '📋 Findings kopieren *'
+}
+function clearDirty() {
+  const btn = document.getElementById('copy-btn')
+  btn.classList.remove('dirty')
+  btn.textContent = '📋 Findings kopieren'
+}
+
+const history = []
+function withHistory(f, mutator) {
+  const current = state.updates.get(f.id)
+  const snapshot = current ? JSON.parse(JSON.stringify(current)) : null
+  history.push({ id: f.id, snapshot })
+  mutator()
+  markDirty()
+  updateUndoButton()
+}
+function undo() {
+  const last = history.pop()
+  if (!last) return
+  if (last.snapshot === null) state.updates.delete(last.id)
+  else state.updates.set(last.id, last.snapshot)
+  updateUndoButton()
+  if (history.length === 0 && state.updates.size === 0) clearDirty()
+  if (state.activeFindingId === last.id) {
+    const finding = state.findings.find((f) => f.id === last.id)
+    if (finding) populatePopup(finding)
+  }
+  refreshDecorations()
+  renderFileTabs()
+}
+function updateUndoButton() {
+  const btn = document.getElementById('undo-btn')
+  btn.disabled = history.length === 0
+}
+
+async function loadFolder(fileList) {
+  const files = {}
+  let findingsContent = null
+  let runDir = null
+
+  for (const file of fileList) {
+    const rel = file.webkitRelativePath || file.name
+    const parts = rel.split('/')
+    const fname = parts[parts.length - 1]
+    if (!runDir && parts.length > 1) runDir = parts[0]
+    if (fname === FINDINGS_FILE) {
+      findingsContent = await file.text()
+    } else if (KNOWN_FILES.includes(fname)) {
+      files[fname] = await file.text()
+    }
+  }
+
+  if (!findingsContent) {
+    toast('Kein review-findings.md im Ordner gefunden', true)
+    return
+  }
+
+  state.parsed = parseFindings(findingsContent)
+  state.findings = state.parsed.findings
+  state.files = files
+  state.runDir = runDir || 'Run'
+  state.updates.clear()
+  history.length = 0
+
+  document.getElementById('welcome').style.display = 'none'
+  document.getElementById('doc').style.display = ''
+  document.getElementById('load-btn').style.display = 'none'
+  document.getElementById('copy-btn').style.display = ''
+  document.getElementById('copy-btn').disabled = false
+  document.getElementById('run-name').textContent = state.runDir
+  clearDirty()
+  updateUndoButton()
+
+  renderFileTabs()
+  // Prefer first file that has findings, else first known available
+  const filesWithFindings = new Set(state.findings.map((f) => f.anchor?.file).filter(Boolean))
+  let firstFile = KNOWN_FILES.find((f) => filesWithFindings.has(f) && state.files[f])
+  if (!firstFile) firstFile = Object.keys(state.files)[0]
+  if (firstFile) selectFile(firstFile)
+  else {
+    document.getElementById('doc').innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px;">Keine Markdown-Files im Ordner gefunden.</p>'
+  }
+
+  toast(state.findings.length + ' Findings geladen ✓')
+}
+
+function renderFileTabs() {
+  const tabs = document.getElementById('file-tabs')
+  tabs.innerHTML = ''
+  for (const file of Object.keys(state.files)) {
+    const open = state.findings.filter((f) => f.anchor?.file === file && getStatus(f) === ' ' && !isDeleted(f)).length
+    const btn = document.createElement('button')
+    btn.innerHTML = file + ' <span class="count">' + open + '</span>'
+    btn.addEventListener('click', () => selectFile(file))
+    btn.dataset.file = file
+    if (file === state.activeFile) btn.classList.add('active')
+    tabs.appendChild(btn)
+  }
+}
+
+function selectFile(file) {
+  state.activeFile = file
+  document.querySelectorAll('.file-tabs button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.file === file)
+  })
+  closePopup()
+  renderDoc()
+}
+
+function renderDoc() {
+  const doc = document.getElementById('doc')
+  const content = state.files[state.activeFile] || ''
+  doc.innerHTML = md.render(preprocessMd(content))
+
+  state.blockLineMap.clear()
+  doc.querySelectorAll('.block').forEach((el) => {
+    const s = parseInt(el.dataset.lineStart, 10)
+    const e = parseInt(el.dataset.lineEnd, 10)
+    state.blockLineMap.set(el, { start: s, end: e })
+  })
+
+  renderFileLevel()
+  decorateBlocks()
+  bindIconHandlers()
+}
+
+function renderFileLevel() {
+  document.querySelectorAll('#file-level').forEach((el) => el.remove())
+  const fileLevel = state.findings.filter((f) =>
+    f.anchor?.file === state.activeFile && !f.anchor?.lineStart && !isDeleted(f)
+  )
+  if (fileLevel.length === 0) return
+  const div = document.createElement('div')
+  div.id = 'file-level'
+  let html = '<div class="label">File</div>'
+  for (const f of fileLevel) {
+    const sev = severityFromId(f.id)
+    const status = getStatus(f)
+    const sc = status === 'x' ? ' status-x' : status === '~' ? ' status-rejected' : ''
+    const hasComment = getUserComments(f).length > 0 ? ' has-comment' : ''
+    html += '<button class="gutter-icon sev-' + sev + sc + hasComment + '" data-finding-id="' + f.id + '" title="' + f.id + '">' + SEV_EMOJI[sev] + '</button>'
+  }
+  div.innerHTML = html
+  document.getElementById('doc').appendChild(div)
+}
+
+function decorateBlocks() {
+  for (const [el, range] of state.blockLineMap.entries()) {
+    const overlapping = findingsForBlock(range)
+    const anchored = iconsForBlock(range)
+
+    const openOverlapping = overlapping.filter((f) => getStatus(f) === ' ' && !isDeleted(f))
+    el.classList.remove('sev-critical', 'sev-warn', 'sev-suggest')
+    if (openOverlapping.length > 0) {
+      const maxRank = openOverlapping
+        .map((f) => SEV_RANK[severityFromId(f.id)] || 0)
+        .reduce((a, b) => Math.max(a, b), 0)
+      const sev = maxRank === 3 ? 'critical' : maxRank === 2 ? 'warn' : 'suggest'
+      el.classList.add('sev-' + sev)
+    }
+
+    const visibleAnchored = anchored.filter((f) => !isDeleted(f))
+    if (visibleAnchored.length > 0) {
+      const gutter = document.createElement('div')
+      gutter.className = 'block-gutter'
+      for (const f of visibleAnchored) {
+        const sev = severityFromId(f.id)
+        const status = getStatus(f)
+        const sc = status === 'x' ? ' status-x' : status === '~' ? ' status-rejected' : ''
+        const hasComment = getUserComments(f).length > 0 ? ' has-comment' : ''
+        const btn = document.createElement('button')
+        btn.className = 'gutter-icon sev-' + sev + sc + hasComment
+        btn.dataset.findingId = f.id
+        btn.title = f.id + ' · ' + categoryFromId(f.id)
+        btn.textContent = SEV_EMOJI[sev]
+        gutter.appendChild(btn)
+      }
+      el.appendChild(gutter)
+    }
+  }
+}
+
+function bindIconHandlers() {
+  document.querySelectorAll('.gutter-icon').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const fid = btn.dataset.findingId
+      const finding = state.findings.find((f) => f.id === fid)
+      if (finding) openPopup(finding, btn)
+    })
+  })
+}
+
+function findingsForBlock(range) {
+  return state.findings
+    .filter((f) => f.anchor?.file === state.activeFile)
+    .filter((f) => f.anchor?.lineStart != null)
+    .filter((f) => {
+      const fs = f.anchor.lineStart
+      const fe = f.anchor.lineEnd ?? fs
+      return fs <= range.end && fe >= range.start
+    })
+}
+
+function iconsForBlock(range) {
+  return state.findings
+    .filter((f) => f.anchor?.file === state.activeFile)
+    .filter((f) => f.anchor?.lineStart != null)
+    .filter((f) => {
+      const fs = f.anchor.lineStart
+      return fs >= range.start && fs <= range.end
+    })
+}
+
+function openPopup(finding, anchorEl) {
+  state.activeFindingId = finding.id
+  populatePopup(finding)
+  const popup = document.getElementById('popup')
+  popup.classList.add('visible')
+  positionPopup(popup, anchorEl)
+}
+
+function positionPopup(popup, anchorEl) {
+  const rect = anchorEl.getBoundingClientRect()
+  const offset = 12
+  const popupWidth = 400
+  const vpW = window.innerWidth
+  const vpH = window.innerHeight
+
+  let left = rect.right + offset
+  if (left + popupWidth > vpW - 10) {
+    left = rect.left - popupWidth - offset
+    if (left < 10) left = vpW - popupWidth - 10
+  }
+
+  let top = rect.top - 4
+  const popupHeight = popup.offsetHeight || 320
+  if (top + popupHeight > vpH - 20) {
+    top = Math.max(20, vpH - popupHeight - 20)
+  }
+  if (top < 60) top = 60
+
+  popup.style.left = left + window.scrollX + 'px'
+  popup.style.top = top + window.scrollY + 'px'
+}
+
+function closePopup() {
+  document.getElementById('popup').classList.remove('visible')
+  state.activeFindingId = null
+}
+
+function populatePopup(f) {
+  const popup = document.getElementById('popup')
+  const sev = severityFromId(f.id)
+  const cat = categoryFromId(f.id)
+  const status = getStatus(f)
+  const anchor = f.anchor
+    ? f.anchor.file + (f.anchor.lineStart ? ':' + f.anchor.lineStart + (f.anchor.lineEnd ? '–' + f.anchor.lineEnd : '') : '')
+    : ''
+  const userComments = getUserComments(f)
+
+  const commentsHtml = userComments.map((c, i) =>
+    '<div class="user-comment"><span class="remove" data-idx="' + i + '">×</span><span class="author">' + escapeAttr(c.author) + ':</span> ' + escapeAndFormat(c.text) + '</div>'
+  ).join('')
+
+  const extraHtml = f.extraLines.length > 0
+    ? '<div class="extra">' + f.extraLines.map((l) => escapeAndFormat(l.replace(/^\s*>\s*/, ''))).join('<br>') + '</div>'
+    : ''
+
+  popup.innerHTML =
+    '<span class="close-x">×</span>' +
+    '<div class="head">' +
+      '<span>' + SEV_EMOJI[sev] + '</span>' +
+      '<span class="id">' + f.id + '</span>' +
+      '<span>· ' + cat + '</span>' +
+      '<span class="anchor">' + escapeAttr(anchor) + '</span>' +
+    '</div>' +
+    '<div class="body">' + escapeAndFormat(f.body) + '</div>' +
+    extraHtml +
+    '<div class="comments">' + commentsHtml + '</div>' +
+    '<textarea placeholder="Kommentar zu diesem Finding…"></textarea>' +
+    '<button class="add-comment-btn">Kommentar speichern</button>' +
+    '<div class="actions">' +
+      '<button data-action="toggle-done"' + (status === 'x' ? ' class="active"' : '') + '>✓ Fehler bereits gelöst</button>' +
+      '<div class="spacer"></div>' +
+      '<button class="danger" data-action="discard">Verwerfen</button>' +
+    '</div>'
+
+  popup.querySelector('.close-x').addEventListener('click', closePopup)
+
+  popup.querySelector('[data-action="toggle-done"]').addEventListener('click', () => {
+    const current = getStatus(f)
+    withHistory(f, () => {
+      const u = getUpdate(f)
+      u.status = current === 'x' ? ' ' : 'x'
+      u.deleted = false
+    })
+    populatePopup(f)
+    refreshDecorations()
+    renderFileTabs()
+  })
+
+  popup.querySelector('[data-action="discard"]').addEventListener('click', () => {
+    withHistory(f, () => { getUpdate(f).deleted = true })
+    closePopup()
+    refreshDecorations()
+    renderFileTabs()
+  })
+
+  popup.querySelectorAll('.remove').forEach((el) => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.idx, 10)
+      withHistory(f, () => { getUpdate(f).userComments.splice(idx, 1) })
+      populatePopup(f)
+      refreshDecorations()
+    })
+  })
+
+  const ta = popup.querySelector('textarea')
+  const submitComment = () => {
+    const text = ta.value.trim()
+    if (!text) return
+    withHistory(f, () => { getUpdate(f).userComments.push({ author: 'Writer', text }) })
+    ta.value = ''
+    populatePopup(f)
+    refreshDecorations()
+    const nextTa = popup.querySelector('textarea')
+    if (nextTa) nextTa.focus()
+  }
+  popup.querySelector('.add-comment-btn').addEventListener('click', submitComment)
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      submitComment()
+    }
+  })
+}
+
+function refreshDecorations() {
+  document.querySelectorAll('#doc .block-gutter').forEach((g) => g.remove())
+  document.querySelectorAll('#doc .block').forEach((el) => {
+    el.classList.remove('sev-critical', 'sev-warn', 'sev-suggest')
+  })
+  renderFileLevel()
+  decorateBlocks()
+  bindIconHandlers()
+}
+
+function escapeAndFormat(text) {
+  if (!text) return ''
+  let s = String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  return s
+}
+function escapeAttr(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+async function copyToClipboard() {
+  if (!state.parsed) return
+  const updated = serializeUpdate(state.parsed, state.updates)
+  try {
+    await navigator.clipboard.writeText(updated)
+    toast('In Zwischenablage kopiert ✓')
+  } catch (err) {
+    toast('Clipboard-Fehler: ' + err.message, true)
+  }
+}
+
+function toast(msg, isError) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.toggle('error', !!isError)
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 2500)
+}
+
+// Initial bindings
+const folderInput = document.getElementById('folder-input')
+folderInput.addEventListener('change', (e) => {
+  if (e.target.files.length > 0) loadFolder(e.target.files)
+})
+document.getElementById('load-btn').addEventListener('click', () => folderInput.click())
+document.getElementById('load-big').addEventListener('click', () => folderInput.click())
+document.getElementById('copy-btn').addEventListener('click', copyToClipboard)
+document.getElementById('undo-btn').addEventListener('click', undo)
+
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); copyToClipboard() }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return
+    e.preventDefault()
+    undo()
+  }
+  if (e.key === 'Escape') closePopup()
+})
+document.addEventListener('click', (e) => {
+  const popup = document.getElementById('popup')
+  if (!popup.classList.contains('visible')) return
+  if (popup.contains(e.target)) return
+  if (e.target.closest('.gutter-icon')) return
+  closePopup()
+})
+</script>
+</body>
+</html>
