@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Signalwort-Flashcards: Adverbialsätze</title>
+<style>
+:root{--navy:#173b70;--blue:#2f78b7;--sky:#edf6ff;--ink:#172033;--muted:#607089;--line:#cbd8e7;--good:#218653;--bad:#c34b43;--gold:#f2bd42}*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:22px 14px;background:linear-gradient(135deg,#edf6ff,#fff9ed);font-family:Arial,Helvetica,sans-serif;color:var(--ink);display:flex;justify-content:center}.app{width:min(780px,100%)}header{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;margin-bottom:15px}h1{margin:0;color:var(--navy);font-size:clamp(25px,5vw,38px);letter-spacing:-.5px}.sub{color:var(--muted);margin-top:4px}.badge{background:var(--navy);color:#fff;border-radius:99px;padding:8px 11px;font-size:12px;font-weight:bold;white-space:nowrap}.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 8px 22px #274b7214;margin-bottom:14px}.progress{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.bar{height:8px;background:#e4edf6;border-radius:99px;overflow:hidden;flex:1}.fill{height:100%;background:var(--gold);width:0%;transition:width .25s}.card{background:var(--sky);border:1px solid #a8cbea;border-radius:20px;min-height:265px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:28px;box-shadow:0 14px 32px #274b7220}.eyebrow{text-transform:uppercase;letter-spacing:1px;font-size:12px;font-weight:bold;color:var(--blue);margin-bottom:18px}.word{font-size:clamp(38px,10vw,70px);font-weight:800;color:var(--navy);line-height:1}.hint{margin-top:17px;color:var(--muted);font-size:14px}.answer{margin-top:14px;font-size:clamp(21px,5vw,32px);font-weight:800;color:var(--good)}.detail{margin-top:7px;color:var(--muted);font-size:14px}.hidden{display:none}.choices{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}.choice{padding:11px 9px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--navy);font-weight:bold;cursor:pointer}.choice:hover{border-color:var(--blue);background:#f4f9ff}.choice:disabled{cursor:default;opacity:.85}.choice.correct{background:#e5f7ec;border-color:var(--good);color:#14683d}.choice.wrong{background:#fff0ee;border-color:var(--bad);color:#963b35}.feedback{min-height:23px;text-align:center;font-weight:bold;font-size:14px}.feedback.good{color:var(--good)}.feedback.bad{color:var(--bad)}.controls{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin:14px 0}.btn{border:0;border-radius:10px;padding:11px 17px;font-weight:bold;font-size:14px;cursor:pointer}.primary{background:var(--navy);color:#fff}.secondary{background:#fff;color:var(--navy);border:1px solid var(--line)}button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}.note{background:#fff8df;border:1px solid #ead084;border-radius:10px;padding:10px 12px;color:#5f4b0b;font-size:13px;line-height:1.4}.note strong{color:#6e5100}@media(max-width:500px){header{display:block}.badge{display:inline-block;margin-top:8px}.choices{grid-template-columns:1fr}.card{min-height:245px;padding:22px}}
+</style>
+</head>
+<body>
+<main class="app">
+<header><div><h1>Signalwort-Flashcards</h1><div class="sub">Welche Art von Adverbialsatz passt?</div></div><div class="badge">Adverbialsätze · Klasse 7</div></header>
+<div class="panel progress"><span id="counter">Karte 1 von 14</span><div class="bar"><div class="fill" id="fill"></div></div><span id="score">0 richtig</span></div>
+<section class="card" id="card" aria-live="polite">
+<div class="eyebrow">Signalwort</div><div class="word" id="word">weil</div>
+<div class="hint" id="hint">Welche Art von Adverbialsatz wird damit meistens eingeleitet?</div>
+<div class="answer hidden" id="answer"></div><div class="detail hidden" id="detail"></div>
+</section>
+<div class="choices" id="choices"></div><div class="feedback" id="feedback"></div>
+<div class="controls"><button class="btn secondary" id="reveal">Antwort anzeigen</button><button class="btn primary" id="next">Nächste Karte</button><button class="btn secondary" id="shuffle">Mischen</button></div>
+<div class="note"><strong>Wichtig:</strong> Das Signalwort <em>„wenn“</em> ist hier absichtlich nicht dabei: Es kann je nach Satz sowohl temporal als auch konditional sein. Dafür braucht man den ganzen Satz und den Zusammenhang.</div>
+</main>
+<script>
+const cards=[
+ {word:'weil',type:'Kausalsatz',question:'Warum?',hint:'Grund / Ursache'},
+ {word:'da',type:'Kausalsatz',question:'Warum?',hint:'Grund / Ursache'},
+ {word:'als',type:'Temporalsatz',question:'Wann?',hint:'Zeit'},
+ {word:'bevor',type:'Temporalsatz',question:'Wann?',hint:'Zeit'},
+ {word:'nachdem',type:'Temporalsatz',question:'Wann?',hint:'Zeit'},
+ {word:'während',type:'Temporalsatz',question:'Wann?',hint:'Zeit'},
+ {word:'falls',type:'Konditionalsatz',question:'Unter welcher Bedingung?',hint:'Voraussetzung'},
+ {word:'obwohl',type:'Konzessivsatz',question:'Trotz welcher Tatsache?',hint:'Gegengrund / Gegensatz'},
+ {word:'damit',type:'Finalsatz',question:'Wozu?',hint:'Zweck / Ziel'},
+ {word:'indem',type:'Modalsatz',question:'Wie?',hint:'Art und Weise'},
+ {word:'sodass',type:'Konsekutivsatz',question:'Mit welcher Folge?',hint:'Folge / Ergebnis'},
+ {word:'ohne dass',type:'Modalsatz',question:'Wie?',hint:'Art und Weise'},
+ {word:'so ... dass',type:'Konsekutivsatz',question:'Mit welcher Folge?',hint:'Folge / Ergebnis'},
+ {word:'seitdem',type:'Temporalsatz',question:'Wann?',hint:'Zeit'}
+];
+const types=['Kausalsatz','Temporalsatz','Konditionalsatz','Konzessivsatz','Finalsatz','Modalsatz','Konsekutivsatz'];
+let order=cards.map((_,i)=>i),pos=0,score=0,answered=false;
+const $=id=>document.getElementById(id);
+function render(){const c=cards[order[pos]];answered=false;$('word').textContent=c.word;$('answer').textContent=c.type;$('detail').textContent=`${c.question} · ${c.hint}`;$('answer').classList.add('hidden');$('detail').classList.add('hidden');$('feedback').textContent='';$('feedback').className='feedback';$('counter').textContent=`Karte ${pos+1} von ${order.length}`;$('fill').style.width=((pos+1)/order.length*100)+'%';$('score').textContent=`${score} richtig`;const box=$('choices');box.innerHTML='';types.forEach(t=>{const b=document.createElement('button');b.className='choice';b.textContent=t;b.addEventListener('click',()=>choose(b,t,c.type));box.appendChild(b)})}
+function choose(button,guess,correct){if(answered)return;answered=true;document.querySelectorAll('.choice').forEach(b=>b.disabled=true);if(guess===correct){button.classList.add('correct');score++;$('feedback').textContent='Richtig!';$('feedback').className='feedback good'}else{button.classList.add('wrong');[...document.querySelectorAll('.choice')].find(b=>b.textContent===correct).classList.add('correct');$('feedback').textContent=`Noch einmal prüfen – richtig ist: ${correct}`;$('feedback').className='feedback bad'}$('answer').classList.remove('hidden');$('detail').classList.remove('hidden');$('score').textContent=`${score} richtig`}
+$('reveal').addEventListener('click',()=>{$('answer').classList.remove('hidden');$('detail').classList.remove('hidden');document.querySelectorAll('.choice').forEach(b=>b.disabled=true);answered=true});$('next').addEventListener('click',()=>{pos=(pos+1)%order.length;render()});$('shuffle').addEventListener('click',()=>{order.sort(()=>Math.random()-.5);pos=0;render()});render();
+</script>
+</body>
+</html>
